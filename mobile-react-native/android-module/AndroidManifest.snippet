@@ -1,0 +1,24 @@
+<!-- Add these entries into your Android app's AndroidManifest.xml (inside <application>) -->
+<!-- Notification listener service -->
+<service
+    android:name="com.firsttool.whatsappwatcher.WhatsAppNotificationListener"
+    android:label="WhatsApp Notification Listener"
+    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+    <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+    </intent-filter>
+</service>
+
+<!-- Add permissions at the manifest root -->
+<!-- Use MANAGE_EXTERNAL_STORAGE carefully and only when necessary -->
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<!-- Optional: foreground service permission and manage external storage note -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+<!--
+ If targeting Android 11+ and you need broad file access, you may consider
+ `MANAGE_EXTERNAL_STORAGE`. This permission is sensitive and requires
+ explicit review for Play Store distribution. Prefer SAF/MediaStore where possible.
+ <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+-->
