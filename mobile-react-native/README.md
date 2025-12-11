@@ -32,6 +32,24 @@ Notes about per-contact folder logic:
 - For production, consider a more robust mapping approach (parsing WhatsApp DB — not possible without access, or hooking into the app UI via Accessibility with explicit consent).
 
 This prototype demonstrates the approach. For a production app you must handle scoped storage properly, background execution, and follow Play Store privacy rules.
+# Permissions & how to enable
+
+- Accessibility Service: enable the app's accessibility service manually in Settings → Accessibility → Installed services. Use the "Open Accessibility Settings" button in the app to jump there.
+
+- Notification access: grant Notification Access to let the `NotificationListenerService` read WhatsApp notification content. Use the "Open Notification Access" button in the app.
+
+- Storage access:
+   - For Android 10 and below: request `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` at runtime (the app prototype requests these permissions).
+   - For Android 11+ (API 30+): prefer using MediaStore or SAF. If broad file access is required, request `MANAGE_EXTERNAL_STORAGE`. Use the "Request All Files Access" button to open the system setting. Note: `MANAGE_EXTERNAL_STORAGE` has Play Store implications.
+
+Testing checklist:
+
+1. Build and install the app on an Android device.
+2. Open the app and grant storage permissions when prompted.
+3. Open Accessibility Settings and enable the `WhatsAppAccessibilityService`.
+4. Open Notification Access and enable the app's notification listener.
+5. Tap "Start Watcher" in the app and send/receive media in WhatsApp; verify files are copied under the app external directory (`/Android/data/<package>/files/WhatsAppArchive/<chat>/`).
+
 # WhatsApp Archiver (React Native prototype)
 
 This folder contains a React Native prototype and Android native module snippets to help watch WhatsApp media folders and save copies into the app storage.

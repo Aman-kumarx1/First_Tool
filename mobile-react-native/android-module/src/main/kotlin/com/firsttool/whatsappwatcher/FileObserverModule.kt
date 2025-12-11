@@ -5,13 +5,12 @@ import android.os.FileObserver
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.Arguments
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.util.Locale
 
 class FileObserverModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
-    private var observer: FileObserver? = null
+    private val observers: MutableMap<String, FileObserver> = mutableMapOf()
 
     override fun getName(): String {
         return "WhatsAppWatcher"
@@ -20,65 +19,104 @@ class FileObserverModule(reactContext: ReactApplicationContext) : ReactContextBa
     @ReactMethod
     fun startFileObserver() {
         val whatsappMediaPath = File("/storage/emulated/0/WhatsApp/Media")
-        val targetBase = File(reactApplicationContext.getExternalFilesDir(null), "WhatsAppArchive")
-        if (!targetBase.exists()) targetBase.mkdirs()
+        if (!whatsappMediaPath.exists()) return
 
-        if (observer != null) return
+        // Start observers for base and existing subfolders
+        scanAndStart(whatsappMediaPath)
 
-        observer = object : FileObserver(whatsappMediaPath.absolutePath, CREATE or MOVED_TO) {
+        // Watch base folder for newly created directories and start observers for them
+        val baseObserver = object : FileObserver(whatsappMediaPath.absolutePath, FileObserver.CREATE or FileObserver.MOVED_TO) {
             override fun onEvent(event: Int, path: String?) {
                 try {
                     if (path == null) return
-                    val src = File(whatsappMediaPath, path)
-                    if (!src.exists()) return
-
-                    // Determine a per-contact folder using the last sender heuristic saved by NotificationListener.
-                    val prefs = reactApplicationContext.getSharedPreferences("whatsapp_watcher", Context.MODE_PRIVATE)
-                    val lastSender = prefs.getString("last_sender", null)
-                    val lastSenderTime = prefs.getLong("last_sender_time", 0)
-                    val now = System.currentTimeMillis()
-
-                    // If last sender is recent (2 minutes), assign into that sender folder; otherwise Unknown
-                    val senderFolderName = if (lastSender != null && (now - lastSenderTime) <= 120_000L) {
-                        sanitizeForFolder(lastSender)
-                    } else {
-                        "Unknown"
+                    val candidate = File(whatsappMediaPath, path)
+                    if (candidate.isDirectory) {
+                        startObserverForDir(candidate)
                     }
-
-                    val destDir = File(targetBase, senderFolderName)
-                    if (!destDir.exists()) destDir.mkdirs()
-
-                    // Keep original file name when copying
-                    val dest = File(destDir, src.name)
-                    copyFile(src, dest)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
         }
-        observer?.startWatching()
+        observers[whatsappMediaPath.absolutePath] = baseObserver
+        baseObserver.startWatching()
     }
 
     @ReactMethod
     fun stopFileObserver() {
-        observer?.stopWatching()
-        observer = null
+        for ((_, obs) in observers) {
+            try { obs.stopWatching() } catch (e: Exception) { e.printStackTrace() }
+        }
+        observers.clear()
     }
 
-    private fun copyFile(src: File, dest: File) {
+    @ReactMethod
+    fun isWatching(promise: Promise) {
         try {
-            val ins = FileInputStream(src)
-            val outs = FileOutputStream(dest)
-            ins.copyTo(outs)
-            ins.close()
-            outs.close()
+            promise.resolve(observers.isNotEmpty())
         } catch (e: Exception) {
-            e.printStackTrace()
+            promise.reject("error", e)
         }
     }
 
-    private fun sanitizeForFolder(s: String): String {
-        val cleaned = s.replace(Regex("[^A-Za-z0-9 _.-]"), "_")
-        return if (cleaned.length > 64) cleaned.substring(0, 64) else cleaned
+    @ReactMethod
+    fun listChats(promise: Promise) {
+        try {
+            val base = reactApplicationContext.getExternalFilesDir(null) ?: reactApplicationContext.filesDir
+            val archive = File(base, "WhatsAppArchive")
+            val arr = Arguments.createArray()
+            if (archive.exists() && archive.isDirectory) {
+                val children = archive.listFiles()
+                if (children != null) {
+                    for (c in children) {
+                        if (c.isDirectory) arr.pushString(c.name)
+                    }
+                }
+            }
+            promise.resolve(arr)
+        } catch (e: Exception) {
+            promise.reject("error", e)
+        }
+    }
+
+    private fun scanAndStart(base: File) {
+        startObserverForDir(base)
+        val children = base.listFiles() ?: return
+        for (c in children) {
+            if (c.isDirectory) startObserverForDir(c)
+        }
+    }
+
+    private fun startObserverForDir(dir: File) {
+        try {
+            val key = dir.absolutePath
+            if (observers.containsKey(key)) return
+
+            val obs = object : FileObserver(dir.absolutePath, FileObserver.CREATE or FileObserver.MOVED_TO or FileObserver.CLOSE_WRITE) {
+                override fun onEvent(event: Int, path: String?) {
+                    try {
+                        if (path == null) return
+                        val src = File(dir, path)
+                        if (!src.exists()) return
+
+                        val prefs = reactApplicationContext.getSharedPreferences("whatsapp_watcher", Context.MODE_PRIVATE)
+                        val lastSender = prefs.getString("last_sender", null)
+                        val lastSenderTime = prefs.getLong("last_sender_time", 0)
+                        val now = System.currentTimeMillis()
+                        val sender = if (lastSender != null && (now - lastSenderTime) <= 120_000L) lastSender else "Unknown"
+
+                        // Use MediaSaver helper to copy and record metadata
+                        MediaSaver.saveMedia(reactApplicationContext, src, sender)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            observers[key] = obs
+            obs.startWatching()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

@@ -15,8 +15,8 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             val title = extras.getString(Notification.EXTRA_TITLE) ?: "unknown"
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
 
-            // Save message text as before
-            saveMessageToFile(title, text)
+            // Save message text using MediaSaver helper
+            MediaSaver.saveMessage(applicationContext, title, text, "received")
 
             // Also store last-sender info into SharedPreferences so the FileObserver can associate
             // incoming media files with the most-recent sender (best-effort heuristic).
@@ -28,17 +28,6 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 e.printStackTrace()
             }
 
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun saveMessageToFile(title: String, message: String) {
-        try {
-            val dir = File(getExternalFilesDir(null), "WhatsAppArchive")
-            if (!dir.exists()) dir.mkdirs()
-            val file = File(dir, "${sanitize(title)}.txt")
-            file.appendText("${System.currentTimeMillis()}: $message\n")
         } catch (e: Exception) {
             e.printStackTrace()
         }

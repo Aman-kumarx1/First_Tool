@@ -81,10 +81,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
 
     private fun saveSentMessage(title: String, message: String) {
         try {
-            val dir = File(getExternalFilesDir(null), "WhatsAppArchive")
-            if (!dir.exists()) dir.mkdirs()
-            val file = File(dir, "${sanitize(title)}_sent.txt")
-            file.appendText("${System.currentTimeMillis()}: $message\n")
+            MediaSaver.saveMessage(applicationContext, title, message, "sent")
         } catch (e: Exception) {
             e.printStackTrace()
         }
