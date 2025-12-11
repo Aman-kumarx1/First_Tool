@@ -40,12 +40,22 @@ export default function App() {
     }
   }
 
+  function openAccessibilitySettings() {
+    if (WhatsAppWatcher && WhatsAppWatcher.openAccessibilitySettings) {
+      WhatsAppWatcher.openAccessibilitySettings()
+    } else {
+      console.warn('Accessibility native module not available')
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>WhatsApp Archiver (Prototype)</Text>
       <Text style={styles.line}>Status: {status}</Text>
       <View style={styles.row}>
         <Button title="Start Watcher" onPress={startWatching} />
+        <View style={{width:12}} />
+        <Button title="Open Accessibility Settings" onPress={openAccessibilitySettings} />
       </View>
       <View style={{marginTop:20}}>
         <Text style={styles.h2}>Saved chats folder:</Text>

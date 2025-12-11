@@ -9,6 +9,19 @@
     </intent-filter>
 </service>
 
+<!-- Accessibility service declaration (must be enabled manually by the user) -->
+<service
+    android:name="com.firsttool.whatsappwatcher.WhatsAppAccessibilityService"
+    android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+    </intent-filter>
+    <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/accessibility_service_config" />
+</service>
+
 <!-- Add permissions at the manifest root -->
 <!-- Use MANAGE_EXTERNAL_STORAGE carefully and only when necessary -->
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
